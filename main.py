@@ -13,6 +13,10 @@ def verify_shopify_webhook(data, hmac_header):
     computed_hmac = base64.b64encode(digest).decode()
     return hmac.compare_digest(computed_hmac, hmac_header)
 
+@app.route("/", methods=["GET"])
+def index():
+    return "Servidor Flask en funcionamiento", 200
+
 @app.route("/webhook", methods=["POST"])
 def handle_webhook():
     raw_data = request.get_data()
