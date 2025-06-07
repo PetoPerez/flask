@@ -65,7 +65,7 @@ async def webhook(request: Request):
         }
         
         # Guardar en la colección 'webhooks'
-        webhook_id = save_document('webhooks', documento_webhook, db_name="procomex")
+        webhook_id = save_document('webhooks', documento_webhook, db_name="test")
         
         if webhook_id:
             print(f"✅ Webhook guardado en MongoDB con ID: {webhook_id}")
