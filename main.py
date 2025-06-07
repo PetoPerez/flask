@@ -7,7 +7,6 @@ import os
 
 app = Flask(__name__)
 SHOPIFY_SECRET = os.getenv("SHOPIFY_SECRET", "tu_clave_secreta_aqui")
-recibidos = {}
 
 def verify_shopify_webhook(data, hmac_header):
     digest = hmac.new(SHOPIFY_SECRET.encode('utf-8'), data, hashlib.sha256).digest()
@@ -20,26 +19,21 @@ def index():
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
-    hmac_header = request.headers.get("X-Shopify-Hmac-Sha256")
-    shop_domain = request.headers.get("X-Shopify-Shop-Domain")
-
-    # Shopify envía el cuerpo como raw
-    data_raw = request.data
-    if not verify_shopify_webhook(data_raw, hmac_header):
-        abort(401)
-
     try:
-        data = json.loads(data_raw)
+        raw_data = request.get_data()
+        hmac_header = request.headers.get("X-Shopify-Hmac-Sha256")
+        if not verify_shopify_webhook(raw_data, hmac_header):
+            print("❌ HMAC no válido")
+            return "No autorizado", 401
+
+        data = json.loads(raw_data)
+
+        # ✅ Imprimir el JSON completo en consola/log
+        print("✅ Webhook recibido:")
+        print(json.dumps(data, indent=2))  # <-- Aquí lo imprimes bonito
+
+        return "Recibido", 200
+
     except Exception as e:
-        return "Error al decodificar JSON", 400
-
-    # Guardamos el último payload por tienda
-    recibidos[shop_domain] = data
-    return "Webhook recibido correctamente", 200
-
-@app.route("/recibidos", methods=["GET"])
-def mostrar_recibidos():
-    return jsonify(recibidos), 200
-
-if __name__ == "__main__":
-    app.run(port=5000, debug=True)
+        print(f"❌ Error procesando el webhook: {e}")
+        return "Error", 400
