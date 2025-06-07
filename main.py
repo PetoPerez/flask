@@ -1,33 +1,11 @@
-'''from flask import Flask, request, jsonify
-import json
-
-app = Flask(__name__)
-
-@app.route("/", methods=["GET"])
-def index():
-    return "Servidor Flask en funcionamiento", 200
-
-@app.route("/webhook", methods=["POST"])
-def webhook():
-    try:
-        raw_data = request.get_data()
-        data = json.loads(raw_data)
-
-        # ✅ Imprime el JSON en los logs
-        print("✅ Webhook recibido sin HMAC:")
-        print(json.dumps(data, indent=2))
-
-        return "Recibido", 200
-
-    except Exception as e:
-        print(f"❌ Error procesando el webhook: {e}")
-        return "Error", 400'''
-
 from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi.templating import Jinja2Templates
+from fastapi.staticfiles import StaticFiles
 from datetime import datetime
 import json
-from db_connection import save_document, get_database
+import os
+from db_connection import save_document, get_database, get_mongo_client
 
 # Crear la aplicación FastAPI
 app = FastAPI(
@@ -36,10 +14,260 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# Configurar templates
+templates = Jinja2Templates(directory="templates")
+
+# Configurar archivos estáticos (CSS, JS)
+# app.mount("/static", StaticFiles(directory="static"), name="static")
+
 @app.get("/")
 async def index():
     """Endpoint de prueba"""
     return {"message": "Servidor FastAPI en funcionamiento", "status": "ok"}
+
+@app.get("/dashboard", response_class=HTMLResponse)
+async def dashboard(request: Request):
+    """Dashboard principal con estado de la aplicación"""
+    try:
+        # Obtener estadísticas de la base de datos
+        db = get_database("test")
+        webhooks_collection = db['webhooks']
+        
+        # Estadísticas básicas
+        total_webhooks = webhooks_collection.count_documents({})
+        webhooks_procesados = webhooks_collection.count_documents({"procesado": True})
+        webhooks_pendientes = total_webhooks - webhooks_procesados
+        
+        # Últimos webhooks (5 más recientes)
+        ultimos_webhooks = list(
+            webhooks_collection.find()
+            .sort("timestamp", -1)
+            .limit(5)
+        )
+        
+        # Convertir ObjectId a string para el template
+        for webhook in ultimos_webhooks:
+            webhook['_id'] = str(webhook['_id'])
+        
+        # Estado de la conexión a MongoDB
+        try:
+            client = get_mongo_client()
+            client.admin.command('ping')
+            client.close()
+            db_status = "connected"
+            db_status_class = "success"
+        except Exception:
+            db_status = "disconnected"
+            db_status_class = "danger"
+        
+        # Estadísticas por tipo de webhook (si existe el campo 'type')
+        pipeline = [
+            {"$group": {"_id": "$datos.type", "count": {"$sum": 1}}},
+            {"$sort": {"count": -1}}
+        ]
+        tipos_webhook = list(webhooks_collection.aggregate(pipeline))
+        
+        context = {
+            "request": request,
+            "app_status": "running",
+            "db_status": db_status,
+            "db_status_class": db_status_class,
+            "total_webhooks": total_webhooks,
+            "webhooks_procesados": webhooks_procesados,
+            "webhooks_pendientes": webhooks_pendientes,
+            "ultimos_webhooks": ultimos_webhooks,
+            "tipos_webhook": tipos_webhook,
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+        
+        return templates.TemplateResponse("dashboard.html", context)
+        
+    except Exception as e:
+        print(f"❌ Error en dashboard: {e}")
+        context = {
+            "request": request,
+            "app_status": "error",
+            "db_status": "error",
+            "db_status_class": "danger",
+            "error_message": str(e),
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+        return templates.TemplateResponse("dashboard.html", context)
+
+@app.get("/webhooks-view", response_class=HTMLResponse)
+async def webhooks_view(request: Request, page: int = 1, limit: int = 20):
+    """Vista de lista de webhooks con paginación"""
+    try:
+        db = get_database("test")
+        webhooks_collection = db['webhooks']
+        
+        # Calcular skip para paginación
+        skip = (page - 1) * limit
+        
+        # Obtener webhooks con paginación
+        webhooks_cursor = webhooks_collection.find().sort("timestamp", -1).skip(skip).limit(limit)
+        webhooks_list = []
+        
+        for webhook in webhooks_cursor:
+            webhook['_id'] = str(webhook['_id'])
+            # Formatear timestamp para mejor visualización
+            if 'timestamp' in webhook:
+                try:
+                    dt = datetime.fromisoformat(webhook['timestamp'].replace('Z', '+00:00'))
+                    webhook['timestamp_formatted'] = dt.strftime("%Y-%m-%d %H:%M:%S")
+                except:
+                    webhook['timestamp_formatted'] = webhook['timestamp']
+            webhooks_list.append(webhook)
+        
+        # Obtener total para paginación
+        total_webhooks = webhooks_collection.count_documents({})
+        total_pages = (total_webhooks + limit - 1) // limit
+        
+        context = {
+            "request": request,
+            "webhooks": webhooks_list,
+            "current_page": page,
+            "total_pages": total_pages,
+            "total_webhooks": total_webhooks,
+            "limit": limit,
+            "has_prev": page > 1,
+            "has_next": page < total_pages,
+            "prev_page": page - 1 if page > 1 else None,
+            "next_page": page + 1 if page < total_pages else None,
+        }
+        
+        return templates.TemplateResponse("webhooks_list.html", context)
+        
+    except Exception as e:
+        print(f"❌ Error en webhooks-view: {e}")
+        context = {
+            "request": request,
+            "error_message": str(e),
+            "webhooks": []
+        }
+        return templates.TemplateResponse("webhooks_list.html", context)
+
+@app.get("/webhook-detail/{webhook_id}", response_class=HTMLResponse)
+async def webhook_detail(request: Request, webhook_id: str):
+    """Vista detallada de un webhook específico"""
+    try:
+        from bson import ObjectId
+        
+        db = get_database("test")
+        webhooks_collection = db['webhooks']
+        
+        webhook = webhooks_collection.find_one({"_id": ObjectId(webhook_id)})
+        
+        if webhook:
+            webhook['_id'] = str(webhook['_id'])
+            # Formatear JSON para mejor visualización
+            webhook['datos_json'] = json.dumps(webhook.get('datos', {}), indent=2)
+            webhook['headers_json'] = json.dumps(webhook.get('headers', {}), indent=2)
+            
+            # Formatear timestamp
+            if 'timestamp' in webhook:
+                try:
+                    dt = datetime.fromisoformat(webhook['timestamp'].replace('Z', '+00:00'))
+                    webhook['timestamp_formatted'] = dt.strftime("%Y-%m-%d %H:%M:%S")
+                except:
+                    webhook['timestamp_formatted'] = webhook['timestamp']
+            
+            context = {
+                "request": request,
+                "webhook": webhook,
+                "webhook_found": True
+            }
+        else:
+            context = {
+                "request": request,
+                "webhook_found": False,
+                "webhook_id": webhook_id
+            }
+        
+        return templates.TemplateResponse("webhook_detail.html", context)
+        
+    except Exception as e:
+        print(f"❌ Error en webhook-detail: {e}")
+        context = {
+            "request": request,
+            "webhook_found": False,
+            "error_message": str(e),
+            "webhook_id": webhook_id
+        }
+        return templates.TemplateResponse("webhook_detail.html", context)
+
+@app.get("/stats", response_class=HTMLResponse)
+async def stats_view(request: Request):
+    """Vista de estadísticas detalladas"""
+    try:
+        db = get_database("test")
+        webhooks_collection = db['webhooks']
+        
+        # Estadísticas por día (últimos 7 días)
+        pipeline_por_dia = [
+            {
+                "$addFields": {
+                    "fecha": {
+                        "$dateFromString": {
+                            "dateString": "$timestamp",
+                            "onError": None
+                        }
+                    }
+                }
+            },
+            {
+                "$match": {
+                    "fecha": {"$ne": None}
+                }
+            },
+            {
+                "$group": {
+                    "_id": {
+                        "$dateToString": {
+                            "format": "%Y-%m-%d",
+                            "date": "$fecha"
+                        }
+                    },
+                    "count": {"$sum": 1}
+                }
+            },
+            {"$sort": {"_id": -1}},
+            {"$limit": 7}
+        ]
+        
+        stats_por_dia = list(webhooks_collection.aggregate(pipeline_por_dia))
+        
+        # Estadísticas por tipo
+        pipeline_por_tipo = [
+            {"$group": {"_id": "$datos.type", "count": {"$sum": 1}}},
+            {"$sort": {"count": -1}}
+        ]
+        stats_por_tipo = list(webhooks_collection.aggregate(pipeline_por_tipo))
+        
+        # Estadísticas por estado de procesamiento
+        procesados = webhooks_collection.count_documents({"procesado": True})
+        pendientes = webhooks_collection.count_documents({"procesado": False})
+        
+        context = {
+            "request": request,
+            "stats_por_dia": stats_por_dia,
+            "stats_por_tipo": stats_por_tipo,
+            "webhooks_procesados": procesados,
+            "webhooks_pendientes": pendientes,
+            "total_webhooks": procesados + pendientes
+        }
+        
+        return templates.TemplateResponse("stats.html", context)
+        
+    except Exception as e:
+        print(f"❌ Error en stats: {e}")
+        context = {
+            "request": request,
+            "error_message": str(e)
+        }
+        return templates.TemplateResponse("stats.html", context)
+
+# ===== ENDPOINTS API ORIGINALES =====
 
 @app.post("/webhook")
 async def webhook(request: Request):

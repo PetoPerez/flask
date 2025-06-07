@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Webhook Monitor{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h1 class="h2">
+            <i class="fas fa-tachometer-alt"></i> Dashboard
+            <small class="text-muted">Estado general del sistema</small>
+        </h1>
+    </div>
+    <div class="col-auto">
+        <button onclick="location.reload()" class="btn btn-outline-primary">
+            <i class="fas fa-sync-alt"></i> Actualizar
+        </button>
+    </div>
+</div>
+
+<!-- Estado del Sistema -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card stats-card h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="card-title">
+                            <i class="fas fa-server text-primary"></i> 
+                            Estado de la Aplicación
+                        </h5>
+                        <h3 class="text-success">
+                            {% if app_status == "running" %}
+                                <i class="fas fa-check-circle"></i> En Funcionamiento
+                            {% else %}
+                                <i class="fas fa-exclamation-triangle text-danger"></i> Error
+                            {% endif %}
+                        </h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card stats-card h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="card-title">
+                            <i class="fas fa-database text-info"></i> 
+                            Base de Datos
+                        </h5>
+                        <h3 class="text-{{ db_status_class }}">
+                            {% if db_status == "connected" %}
+                                <i class="fas fa-check-circle"></i> Conectada
+                            {% else %}
+                                <i class="fas fa-times-circle"></i> Desconectada
+                            {% endif %}
+                        </h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Estadísticas de Webhooks -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card stats-card bg-primary text-white">
+            <div class="card-body text-center">
+                <i class="fas fa-inbox fa-2x mb-2"></i>
+                <h3>{{ total_webhooks or 0 }}</h3>
+                <p class="mb-0">Total Webhooks</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card stats-card bg-success text-white">
+            <div class="card-body text-center">
+                <i class="fas fa-check fa-2x mb-2"></i>
+                <h3>{{ webhooks_procesados or 0 }}</h3>
+                <p class="mb-0">Procesados</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card stats-card bg-warning text-white">
+            <div class="card-body text-center">
+                <i class="fas fa-clock fa-2x mb-2"></i>
+                <h3>{{ webhooks_pendientes or 0 }}</h3>
+                <p class="mb-0">Pendientes</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Últimos Webhooks -->
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-history"></i> 
+                    Últimos Webhooks Recibidos
+                </h5>
+                <a href="/webhooks-view" class="btn btn-sm btn-outline-primary">
+                    Ver todos
+                </a>
+            </div>
+            <div class="card-body">
+                {% if ultimos_webhooks %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Tipo</th>
+                                    <th>Timestamp</th>
+                                    <th>Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for webhook in ultimos_webhooks %}
+                                <tr>
+                                    <td>
+                                        <a href="/webhook-detail/{{ webhook._id }}" class="text-decoration-none">
+                                            {{ webhook._id[:8] }}...
+                                        </a>
+                                    </td>
+                                    <td>
+                                        {% if webhook.datos and webhook.datos.type %}
+                                            <span class="badge bg-info">{{ webhook.datos.type }}</span>
+                                        {% else %}
+                                            <span class="text-muted">N/A</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <small>{{ webhook.timestamp[:19] if webhook.timestamp else 'N/A' }}</small>
+                                    </td>
+                                    <td>
+                                        {% if webhook.procesado %}
+                                            <span class="badge bg-success">Procesado</span>
+                                        {% else %}
+                                            <span class="badge bg-warning">Pendiente</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-inbox fa-3x mb-3"></i>
+                        <p>No hay webhooks registrados aún</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-chart-pie"></i> 
+                    Tipos de Webhook
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if tipos_webhook %}
+                    {% for tipo in tipos_webhook %}
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="badge bg-secondary">
+                                {{ tipo._id if tipo._id else 'Sin tipo' }}
+                            </span>
+                            <strong>{{ tipo.count }}</strong>
+                        </div>
+                        <div class="progress mb-3" style="height: 5px;">
+                            <div class="progress-bar" role="progressbar" 
+                                 style="width: {{ (tipo.count / total_webhooks * 100) if total_webhooks else 0 }}%">
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted">No hay datos disponibles</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Error Message (si existe) -->
+{% if error_message %}
+<div class="row mt-4">
+    <div class="col">
+        <div class="alert alert-danger">
+            <i class="fas fa-exclamation-triangle"></i>
+            <strong>Error:</strong> {{ error_message }}
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Auto-refresh every 30 seconds
+    setTimeout(function() {
+        location.reload();
+    }, 30000);
+</script>
+{% endblock %}
