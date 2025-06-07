@@ -26,7 +26,7 @@ def webhook():
     # Solo para debug:
     print(data)
 
-    return "Webhook recibido", 200
+    return data, 200
 
 if __name__ == "__main__":
     app.run(port=5000, debug=True)
