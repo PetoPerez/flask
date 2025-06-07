@@ -93,7 +93,7 @@ async def webhook(request: Request):
 async def procesar_webhook_data(data, webhook_id):
     """Procesa los datos del webhook según tu lógica de negocio"""
     try:
-        db = get_database("procomex")
+        db = get_database("test")
         
         # Ejemplo: extraer información específica según tu caso
         datos_procesados = {
@@ -147,7 +147,7 @@ async def listar_webhooks(limit: int = 10, skip: int = 0):
         from db_connection import find_documents
         
         # Buscar webhooks con paginación
-        db = get_database("procomex")
+        db = get_database("test")
         webhooks = db['webhooks']
         
         # Obtener webhooks con límite y offset
@@ -180,7 +180,7 @@ async def obtener_webhook(webhook_id: str):
         from bson import ObjectId
         from db_connection import get_database
         
-        db = get_database("procomex")
+        db = get_database("test")
         webhooks = db['webhooks']
         
         webhook = webhooks.find_one({"_id": ObjectId(webhook_id)})
