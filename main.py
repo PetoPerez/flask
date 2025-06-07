@@ -2,6 +2,8 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 import json
 from datetime import datetime
+from db_connection import save_document
+
 
 app = FastAPI()
 
@@ -87,26 +89,35 @@ async def webhook(request: Request):
     try:
         raw_data = await request.body()
         data = json.loads(raw_data)
-        
+
         # ✅ Imprime el JSON en los logs
         print("✅ Webhook recibido sin HMAC:")
         print(json.dumps(data, indent=2))
-        
-        # Guardar webhook en memoria
+
+        # Guardar en memoria (para visualización)
         formatted_data = json.dumps(data, indent=2)
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         webhooks_received.append({
-            'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            'timestamp': timestamp,
             'data': data,
             'formatted_data': formatted_data
         })
-        
+
+        # ✅ Guardar en MongoDB
+        document = {
+            "timestamp": timestamp,
+            "payload": data
+        }
+        inserted_id = save_document("webhooks_shopify", document, db_name="nombre_de_tu_db")  # Cambia por el nombre real
+
         # Renderizar los datos en HTML
         html_content = HTML_TEMPLATE.format(data=formatted_data)
         return HTMLResponse(content=html_content)
-        
+
     except Exception as e:
         print(f"❌ Error procesando el webhook: {e}")
         return {"error": "Error procesando webhook"}
+
 
 if __name__ == "__main__":
     import uvicorn
