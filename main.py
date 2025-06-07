@@ -1,4 +1,4 @@
-from flask import Flask, request, abort
+from flask import Flask, request, abort, jsonify
 import hmac
 import hashlib
 import base64
@@ -20,17 +20,26 @@ def index():
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
-    data = request.get_json()
-    if not data:
-        return "No JSON recibido", 400
+    hmac_header = request.headers.get("X-Shopify-Hmac-Sha256")
+    shop_domain = request.headers.get("X-Shopify-Shop-Domain")
 
-    recibidos[request.headers.get("X-Shopify-Shop-Domain")] = data
+    # Shopify envía el cuerpo como raw
+    data_raw = request.data
+    if not verify_shopify_webhook(data_raw, hmac_header):
+        abort(401)
 
-    return data, 200
+    try:
+        data = json.loads(data_raw)
+    except Exception as e:
+        return "Error al decodificar JSON", 400
+
+    # Guardamos el último payload por tienda
+    recibidos[shop_domain] = data
+    return "Webhook recibido correctamente", 200
 
 @app.route("/recibidos", methods=["GET"])
-def index():
-    return print(recibidos)
+def mostrar_recibidos():
+    return jsonify(recibidos), 200
 
 if __name__ == "__main__":
     app.run(port=5000, debug=True)
