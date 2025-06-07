@@ -118,12 +118,18 @@ async def webhook(request: Request):
         print(f"❌ Error procesando el webhook: {e}")
         return {"error": "Error procesando webhook"}
     
+from fastapi.responses import JSONResponse
 from db_connection import find_documents
 
 @app.get("/mongo-webhooks")
 def ver_webhooks_guardados():
-    documentos = find_documents("webhooks_shopify", db_name="nombre_de_tu_db")
-    return {"total": len(documentos), "webhooks": documentos}
+    try:
+        documentos = find_documents("webhooks_shopify", db_name="nombre_de_tu_db")  # reemplaza con tu DB
+        return {"total": len(documentos), "webhooks": documentos}
+    except Exception as e:
+        print(f"❌ Error consultando documentos de MongoDB: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
 
 
 
