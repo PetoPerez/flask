@@ -18,31 +18,15 @@ def index():
     return "Servidor Flask en funcionamiento", 200
 
 @app.route("/webhook", methods=["POST"])
-def handle_webhook():
-    raw_data = request.get_data()
-    headers = request.headers
+def webhook():
+    data = request.get_json()
+    if not data:
+        return "No JSON recibido", 400
 
-    # Detectar origen por header personalizado o algún campo
-    source = headers.get("X-Source") or request.json.get("source")
+    # Solo para debug:
+    print(data)
 
-    if source == "shopify":
-        hmac_header = headers.get("X-Shopify-Hmac-Sha256")
-        if not verify_shopify_webhook(raw_data, hmac_header):
-            abort(401, "Firma HMAC inválida")
-
-        data = request.get_json()
-        print("📦 Webhook de Shopify recibido:", data)
-        # Procesa el webhook de Shopify aquí
-        return '', 200
-
-    elif source == "sqlserver":
-        data = request.get_json()
-        print("🗃️ Trigger de SQL Server recibido:", data)
-        # Procesa el trigger de SQL Server aquí
-        return '', 200
-
-    else:
-        abort(400, "Fuente desconocida")
+    return "Webhook recibido", 200
 
 if __name__ == "__main__":
     app.run(port=5000, debug=True)
