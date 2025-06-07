@@ -7,6 +7,7 @@ import os
 
 app = Flask(__name__)
 SHOPIFY_SECRET = os.getenv("SHOPIFY_SECRET", "tu_clave_secreta_aqui")
+recibidos = {}
 
 def verify_shopify_webhook(data, hmac_header):
     digest = hmac.new(SHOPIFY_SECRET.encode('utf-8'), data, hashlib.sha256).digest()
@@ -23,10 +24,13 @@ def webhook():
     if not data:
         return "No JSON recibido", 400
 
-    # Solo para debug:
-    print(data)
+    recibidos[request.headers.get("X-Shopify-Shop-Domain")] = data
 
     return data, 200
+
+@app.route("/recibidos", methods=["GET"])
+def index():
+    return print(recibidos)
 
 if __name__ == "__main__":
     app.run(port=5000, debug=True)
