@@ -117,6 +117,14 @@ async def webhook(request: Request):
     except Exception as e:
         print(f"❌ Error procesando el webhook: {e}")
         return {"error": "Error procesando webhook"}
+    
+from db_connection import find_documents
+
+@app.get("/mongo-webhooks")
+def ver_webhooks_guardados():
+    documentos = find_documents("webhooks_shopify", db_name="nombre_de_tu_db")
+    return {"total": len(documentos), "webhooks": documentos}
+
 
 
 if __name__ == "__main__":
