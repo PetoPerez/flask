@@ -55,7 +55,7 @@ def get_database(db_name="test"):
     client = get_mongo_client()
     return client[db_name]
 
-def save_document(collection_name, document, db_name="test"):
+def save_document(collection_name, document, db_name="nombre_de_tu_db"):
     """Guarda un documento en una colección específica"""
     try:
         db = get_database(db_name)
@@ -67,7 +67,7 @@ def save_document(collection_name, document, db_name="test"):
         print(f"❌ Error guardando documento: {e}")
         return None
 
-def find_documents(collection_name, query={}, db_name="test"):
+def find_documents(collection_name, query={}, db_name="nombre_de_tu_db"):
     """Busca documentos en una colección"""
     try:
         db = get_database(db_name)

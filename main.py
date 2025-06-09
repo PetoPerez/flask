@@ -120,15 +120,42 @@ async def webhook(request: Request):
     
 from fastapi.responses import JSONResponse
 from db_connection import find_documents
+import json
+from bson import ObjectId
+
+# Función helper para convertir ObjectId a string
+def convert_objectid(obj):
+    if isinstance(obj, ObjectId):
+        return str(obj)
+    elif isinstance(obj, dict):
+        return {key: convert_objectid(value) for key, value in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_objectid(item) for item in obj]
+    return obj
 
 @app.get("/mongo-webhooks")
 def ver_webhooks_guardados():
     try:
-        documentos = find_documents("webhooks_shopify", db_name="nombre_de_tu_db")  # reemplaza con tu DB
-        return {"total": len(documentos), "webhooks": documentos}
+        documentos = find_documents("webhooks_shopify", db_name="nombre_de_tu_db")
+        
+        # Convertir ObjectId a string para serialización JSON
+        documentos_serializables = convert_objectid(documentos)
+        
+        return {
+            "total": len(documentos_serializables), 
+            "webhooks": documentos_serializables
+        }
+    except ImportError:
+        return JSONResponse(
+            status_code=500, 
+            content={"error": "Módulo bson no encontrado. Instala: pip install pymongo"}
+        )
     except Exception as e:
         print(f"❌ Error consultando documentos de MongoDB: {e}")
-        return JSONResponse(status_code=500, content={"error": str(e)})
+        return JSONResponse(
+            status_code=500, 
+            content={"error": f"Error de base de datos: {str(e)}"}
+        )
 
 
 
