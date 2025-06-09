@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Webhooks MongoDB - Shopify</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #2c5aa0 0%, #1e3a8a 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 300;
+        }
+        
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-top: 20px;
+        }
+        
+        .stat-item {
+            text-align: center;
+            padding: 15px 25px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            display: block;
+        }
+        
+        .stat-label {
+            font-size: 0.9em;
+            opacity: 0.9;
+            margin-top: 5px;
+        }
+        
+        .content {
+            padding: 30px;
+        }
+        
+        .webhook-grid {
+            display: grid;
+            gap: 20px;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+        }
+        
+        .webhook-card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 25px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .webhook-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.1);
+            border-color: #667eea;
+        }
+        
+        .webhook-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        
+        .webhook-timestamp {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 8px 15px;
+            border-radius: 25px;
+            font-size: 0.85em;
+            font-weight: 500;
+        }
+        
+        .webhook-id {
+            font-family: 'Courier New', monospace;
+            font-size: 0.8em;
+            color: #64748b;
+            background: #f1f5f9;
+            padding: 5px 10px;
+            border-radius: 5px;
+        }
+        
+        .json-container {
+            background: #1e293b;
+            border-radius: 8px;
+            padding: 20px;
+            overflow-x: auto;
+            margin-top: 15px;
+        }
+        
+        .json-content {
+            color: #e2e8f0;
+            font-family: 'Courier New', Monaco, monospace;
+            font-size: 0.9em;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        
+        .no-data {
+            text-align: center;
+            padding: 60px 20px;
+            color: #64748b;
+        }
+        
+        .no-data-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+        
+        .no-data h3 {
+            font-size: 1.5em;
+            margin-bottom: 10px;
+            color: #475569;
+        }
+        
+        .no-data p {
+            font-size: 1.1em;
+            line-height: 1.6;
+        }
+        
+        .refresh-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 15px 20px;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+        
+        .refresh-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 35px rgba(102, 126, 234, 0.6);
+        }
+        
+        .payload-summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .summary-item {
+            background: white;
+            padding: 10px 15px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .summary-label {
+            font-size: 0.8em;
+            color: #64748b;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+        
+        .summary-value {
+            font-size: 1.1em;
+            color: #1e293b;
+            font-weight: 500;
+            margin-top: 5px;
+        }
+        
+        @media (max-width: 768px) {
+            .webhook-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .stats {
+                flex-direction: column;
+                gap: 15px;
+            }
+            
+            .webhook-header {
+                flex-direction: column;
+                gap: 10px;
+                align-items: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🗄️ Webhooks MongoDB</h1>
+            <p>Registro completo de webhooks de Shopify</p>
+            
+            <div class="stats">
+                <div class="stat-item">
+                    <span class="stat-number">{{ total }}</span>
+                    <span class="stat-label">Total Webhooks</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number">{{ recent_count }}</span>
+                    <span class="stat-label">Últimas 24h</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="content">
+            {% if webhooks %}
+                <div class="webhook-grid">
+                    {% for webhook in webhooks %}
+                    <div class="webhook-card">
+                        <div class="webhook-header">
+                            <div class="webhook-timestamp">
+                                📅 {{ webhook.timestamp }}
+                            </div>
+                            <div class="webhook-id">
+                                ID: {{ webhook._id }}
+                            </div>
+                        </div>
+                        
+                        {% if webhook.payload %}
+                            <div class="payload-summary">
+                                {% if webhook.payload.id %}
+                                <div class="summary-item">
+                                    <div class="summary-label">Order ID</div>
+                                    <div class="summary-value">{{ webhook.payload.id }}</div>
+                                </div>
+                                {% endif %}
+                                
+                                {% if webhook.payload.total_price %}
+                                <div class="summary-item">
+                                    <div class="summary-label">Total</div>
+                                    <div class="summary-value">${{ webhook.payload.total_price }}</div>
+                                </div>
+                                {% endif %}
+                                
+                                {% if webhook.payload.customer %}
+                                <div class="summary-item">
+                                    <div class="summary-label">Cliente</div>
+                                    <div class="summary-value">{{ webhook.payload.customer.first_name }} {{ webhook.payload.customer.last_name }}</div>
+                                </div>
+                                {% endif %}
+                                
+                                {% if webhook.payload.financial_status %}
+                                <div class="summary-item">
+                                    <div class="summary-label">Estado</div>
+                                    <div class="summary-value">{{ webhook.payload.financial_status }}</div>
+                                </div>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+                        
+                        <div class="json-container">
+                            <div class="json-content">{{ webhook.formatted_payload }}</div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="no-data">
+                    <div class="no-data-icon">📭</div>
+                    <h3>No hay webhooks registrados</h3>
+                    <p>Los webhooks recibidos de Shopify aparecerán aquí automáticamente</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <button class="refresh-btn" onclick="window.location.reload()">
+        🔄 Actualizar
+    </button>
+</body>
+</html>

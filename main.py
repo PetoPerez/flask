@@ -26,7 +26,7 @@ HTML_TEMPLATE = """
 </head>
 <body>
     <div class="container">
-        <h1>✅ Webhook Recibido de Shopify</h1>
+        <h1>✅ Webhooks Recibidos</h1>
         <h3>Datos JSON:</h3>
         <div class="json-data">{data}</div>
     </div>
@@ -63,7 +63,7 @@ HISTORY_TEMPLATE = """
 def index():
     return {"message": "Servidor FastAPI en funcionamiento"}
 
-@app.get("/webhook")
+'''@app.get("/webhook")
 def webhook_history():
     """Muestra el historial de webhooks recibidos"""
     if not webhooks_received:
@@ -82,7 +82,7 @@ def webhook_history():
         count=len(webhooks_received),
         content=content
     )
-    return HTMLResponse(content=html_content)
+    return HTMLResponse(content=html_content)'''
 
 @app.post("/webhook")
 async def webhook(request: Request):
@@ -122,6 +122,11 @@ from fastapi.responses import JSONResponse
 from db_connection import find_documents
 import json
 from bson import ObjectId
+from fastapi.templating import Jinja2Templates
+from datetime import datetime, timedelta
+
+# Configurar templates
+templates = Jinja2Templates(directory="templates")
 
 # Función helper para convertir ObjectId a string
 def convert_objectid(obj):
@@ -134,27 +139,64 @@ def convert_objectid(obj):
     return obj
 
 @app.get("/mongo-webhooks")
-def ver_webhooks_guardados():
+def ver_webhooks_guardados(request: Request):
     try:
+        # Obtener documentos de MongoDB
         documentos = find_documents("webhooks_shopify", db_name="nombre_de_tu_db")
         
-        # Convertir ObjectId a string para serialización JSON
+        # Convertir ObjectId a string para serialización
         documentos_serializables = convert_objectid(documentos)
         
-        return {
-            "total": len(documentos_serializables), 
-            "webhooks": documentos_serializables
-        }
+        # Calcular webhooks recientes (últimas 24 horas)
+        ahora = datetime.now()
+        hace_24h = ahora - timedelta(hours=24)
+        recent_count = 0
+        
+        # Procesar los documentos para la plantilla
+        webhooks_procesados = []
+        for doc in documentos_serializables:
+            try:
+                # Formatear timestamp si existe
+                if 'timestamp' in doc:
+                    if isinstance(doc['timestamp'], str):
+                        doc_time = datetime.strptime(doc['timestamp'], "%Y-%m-%d %H:%M:%S")
+                        if doc_time >= hace_24h:
+                            recent_count += 1
+                
+                # Formatear el payload JSON
+                if 'payload' in doc:
+                    doc['formatted_payload'] = json.dumps(doc['payload'], indent=2, ensure_ascii=False)
+                else:
+                    doc['formatted_payload'] = "No payload disponible"
+                
+                webhooks_procesados.append(doc)
+            except Exception as e:
+                print(f"Error procesando documento: {e}")
+                continue
+        
+        # Ordenar por timestamp (más recientes primero)
+        webhooks_procesados.sort(
+            key=lambda x: x.get('timestamp', ''), 
+            reverse=True
+        )
+        
+        return templates.TemplateResponse("mongo_webhooks.html", {
+            "request": request,
+            "webhooks": webhooks_procesados,
+            "total": len(webhooks_procesados),
+            "recent_count": recent_count
+        })
+        
     except ImportError:
-        return JSONResponse(
-            status_code=500, 
-            content={"error": "Módulo bson no encontrado. Instala: pip install pymongo"}
+        return HTMLResponse(
+            content="<h1>Error</h1><p>Módulo bson no encontrado. Instala: pip install pymongo</p>",
+            status_code=500
         )
     except Exception as e:
         print(f"❌ Error consultando documentos de MongoDB: {e}")
-        return JSONResponse(
-            status_code=500, 
-            content={"error": f"Error de base de datos: {str(e)}"}
+        return HTMLResponse(
+            content=f"<h1>Error</h1><p>Error de base de datos: {str(e)}</p>",
+            status_code=500
         )
 
 
