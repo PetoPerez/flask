@@ -41,7 +41,7 @@ def guardar_en_sqlserver(payload: dict):
         # Insertar en la base de datos
         with engine.connect() as connection:
             insert_query = text("""
-                INSERT INTO VentasShopify (IdVenta, Fecha, Hora, Cliente, Folio, ImporteVenta)
+                INSERT INTO OnLineVenta (IdVenta, Fecha, Hora, Cliente, Folio, ImporteVenta)
                 VALUES (:id_venta, :fecha, :hora, :cliente, :folio, :total)
             """)
             connection.execute(insert_query, {
