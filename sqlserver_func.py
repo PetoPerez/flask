@@ -2,21 +2,17 @@
 
 from sqlalchemy import create_engine, text
 from datetime import datetime
-from dotenv import load_dotenv
-import os
-
-# Puedes mover esto a un archivo de configuración si lo deseas
-#conn_str = f"mssql+pymssql://OnlineUserMaz:KLf5hMVH#_9sBN-S3HAW-Q6@mostrador2.ddns.net:1435"
-load_dotenv(override=True)
-conn_str = os.getenv("conn_str")
-engine = create_engine(conn_str, connect_args={
-    'login_timeout': 60,
-    'timeout': 60,
-    'tds_version': '7.0'
-})
 
 def guardar_en_sqlserver(payload: dict):
     try:
+        # 🔁 Crear el engine aquí dentro evita fallos de importación al iniciar
+        conn_str = "mssql+pymssql://OnlineUserMaz:KLf5hMVH%23_9sBN-S3HAW-Q6@mostrador2.ddns.net:1435"  # %23 es '#' codificado
+        engine = create_engine(conn_str, connect_args={
+            'login_timeout': 60,
+            'timeout': 60,
+            'tds_version': '7.0'
+        })
+
         id_venta = str(payload.get("id"))
         fecha_iso = payload.get("created_at")
 
