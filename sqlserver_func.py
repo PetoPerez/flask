@@ -2,17 +2,27 @@
 
 from sqlalchemy import create_engine, text
 from datetime import datetime
+import os
+from dotenv import load_dotenv
+
+# Cargar variables del entorno
+load_dotenv()
 
 def guardar_en_sqlserver(payload: dict):
     try:
-        # 🔁 Crear el engine aquí dentro evita fallos de importación al iniciar
-        conn_str = "mssql+pymssql://OnlineUserMaz:KLf5hMVH%23_9sBN-S3HAW-Q6@mostrador2.ddns.net:1435"  # %23 es '#' codificado
+        # Leer cadena de conexión desde variable de entorno
+        conn_str = os.getenv("SQLSERVER_URL")
+        if not conn_str:
+            raise ValueError("No se encontró SQLSERVER_URL en las variables de entorno")
+
+        # Crear el engine dentro de la función
         engine = create_engine(conn_str, connect_args={
             'login_timeout': 60,
             'timeout': 60,
             'tds_version': '7.0'
         })
 
+        # Extraer campos del payload
         id_venta = str(payload.get("id"))
         fecha_iso = payload.get("created_at")
 
@@ -28,6 +38,7 @@ def guardar_en_sqlserver(payload: dict):
         folio = payload.get("name")
         total = float(payload.get("total_price", 0.0))
 
+        # Insertar en la base de datos
         with engine.connect() as connection:
             insert_query = text("""
                 INSERT INTO VentasShopify (IdVenta, Fecha, Hora, Cliente, Folio, ImporteVenta)
