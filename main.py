@@ -3,7 +3,7 @@ from fastapi.responses import HTMLResponse
 import json
 from datetime import datetime
 from db_connection import save_document
-from sqlserver_func import guardar_en_sqlserver
+from sqlserver_func import guardar_venta_completa
 
 
 app = FastAPI()
@@ -44,7 +44,7 @@ async def webhook(request: Request):
         inserted_id = save_document("webhooks_shopify", document, db_name="nombre_de_tu_db")  # Cambia por el nombre real
 
         # Guardar en SQL Server
-        guardar_en_sqlserver(data)
+        guardar_venta_completa(data)
 
         
         
