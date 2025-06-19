@@ -112,7 +112,7 @@ async def webhook(request: Request):
 
         # Renderizar los datos en HTML
         html_content = HTML_TEMPLATE.format(data=formatted_data)
-        return HTMLResponse(content=html_content)
+        return "OK"#HTMLResponse(content=html_content)
 
     except Exception as e:
         print(f"❌ Error procesando el webhook: {e}")
